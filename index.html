@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Campus virtuel ECE</title>
+<style>
+  :root { --navy: #122652; --cyan: #00aac8; }
+  * { box-sizing: border-box; }
+  body { font-family: system-ui, sans-serif; background: var(--navy); color: #fff; margin: 0; padding: 24px 16px; }
+  main { max-width: 900px; margin: 0 auto; display: grid; gap: 24px; grid-template-columns: 1fr 1fr; align-items: start; }
+  @media (max-width: 760px) { main { grid-template-columns: 1fr; } }
+  h1 { text-align: center; margin: 0 0 24px; }
+  .carte { background: #fff; color: var(--navy); border-radius: 12px; padding: 22px; }
+  label { display: block; font-weight: 600; margin: 12px 0 4px; }
+  input { width: 100%; padding: 10px; border: 1px solid #c5cbd8; border-radius: 8px; font-size: 15px; }
+  button { width: 100%; margin-top: 16px; padding: 12px; border: 0; border-radius: 8px; background: var(--cyan); color: #fff; font-weight: 700; font-size: 15px; cursor: pointer; }
+  button.secondaire { background: var(--navy); }
+  .erreur { color: #c0392b; min-height: 1.2em; margin-top: 10px; }
+  .badge { display: inline-block; padding: 2px 10px; border-radius: 99px; color: #fff; font-size: 13px; }
+  .prof { background: #e67e22; } .etudiant { background: #2980b9; } .admin { background: #c0392b; }
+  video { width: 100%; border-radius: 8px; background: #000; margin-top: 12px; aspect-ratio: 4/3; object-fit: cover; }
+  meter { width: 100%; }
+  img { max-width: 100%; border-radius: 8px; border: 3px solid var(--cyan); }
+  .plan { grid-column: 1 / -1; text-align: center; }
+</style>
+</head>
+<body>
+<h1>Campus Eiffel virtuel · ECE / INSEEC</h1>
+<main>
+  <section class="carte" id="bloc-connexion">
+    <h2>Connexion</h2>
+    <form id="form">
+      <label for="email">Adresse mail de l'école</label>
+      <input id="email" type="email" placeholder="prenom.nom@edu.ece.fr" autocomplete="username" required>
+      <label for="mdp">Mot de passe</label>
+      <input id="mdp" type="password" autocomplete="current-password" required>
+      <button type="submit">Se connecter</button>
+      <div class="erreur" id="erreur"></div>
+    </form>
+  </section>
+
+  <section class="carte" id="bloc-connecte" hidden>
+    <h2>Bonjour <span id="nom"></span></h2>
+    <p>Rôle : <span class="badge" id="role"></span></p>
+    <p id="droits"></p>
+    <button id="entrer">▶ Entrer sur le campus</button>
+    <button class="secondaire" id="voirCodes" hidden onclick="location.href='codes.html'">🔑 Codes des salles</button>
+    <button class="secondaire" id="deco">Se déconnecter</button>
+  </section>
+
+  <section class="carte">
+    <h2>Micro et caméra</h2>
+    <p>Autorise l'accès quand le navigateur le demande. WorkAdventure le redemandera à l'entrée du campus.</p>
+    <button id="tester">🎤📷 Tester mon micro et ma caméra</button>
+    <video id="video" autoplay muted playsinline hidden></video>
+    <meter id="niveau" min="0" max="1" value="0" hidden></meter>
+    <div class="erreur" id="erreur-media"></div>
+  </section>
+
+  <section class="plan"><img src="apercu-quartier.png" alt="Plan du Campus Eiffel virtuel"></section>
+</main>
+
+<script>
+  const ROLES = {
+    prof: ["Professeur", "Tu peux monter sur l'estrade et au tableau, faire des annonces et voir les mains levées."],
+    etudiant: ["Étudiant", "Tu peux suivre les cours, travailler en groupe et lever la main."],
+    admin: ["Administration", "Tu peux faire des annonces à tout le campus et voir la liste des présents."],
+  };
+  const $ = (id) => document.getElementById(id);
+  let session = null;
+  try { session = JSON.parse(sessionStorage.getItem("ece-session")); } catch (e) {}
+
+  function afficher() {
+    $("bloc-connexion").hidden = !!session;
+    $("bloc-connecte").hidden = !session;
+    if (!session) return;
+    $("nom").textContent = session.nom;
+    $("role").textContent = ROLES[session.role][0];
+    $("role").className = "badge " + session.role;
+    $("droits").textContent = ROLES[session.role][1];
+    $("voirCodes").hidden = session.role === "etudiant";
+  }
+
+  $("form").onsubmit = async (e) => {
+    e.preventDefault();
+    $("erreur").textContent = "";
+    const r = await fetch("/api/login", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: $("email").value, motDePasse: $("mdp").value }),
+    });
+    const d = await r.json();
+    if (!r.ok) { $("erreur").textContent = d.erreur; return; }
+    session = d;
+    try { sessionStorage.setItem("ece-session", JSON.stringify(d)); } catch (e) {}
+    afficher();
+  };
+
+  $("deco").onclick = () => { session = null; try { sessionStorage.removeItem("ece-session"); } catch (e) {} afficher(); };
+
+  $("entrer").onclick = () => {
+    location.href = "https://play.workadventu.re/_/global/" + location.host + "/quartier.tmj#jeton=" + encodeURIComponent(session.jeton);
+  };
+
+  $("tester").onclick = async () => {
+    $("erreur-media").textContent = "";
+    try {
+      const flux = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
+      $("video").srcObject = flux; $("video").hidden = false; $("niveau").hidden = false;
+      const ctx = new AudioContext(), an = ctx.createAnalyser();
+      ctx.createMediaStreamSource(flux).connect(an);
+      const buf = new Uint8Array(an.fftSize);
+      (function boucle() {
+        an.getByteTimeDomainData(buf);
+        let max = 0; for (const v of buf) max = Math.max(max, Math.abs(v - 128));
+        $("niveau").value = max / 128;
+        requestAnimationFrame(boucle);
+      })();
+    } catch (err) {
+      $("erreur-media").textContent = "Accès refusé ou indisponible : " + err.name +
+        ". Vérifie Paramètres Windows › Confidentialité › Caméra / Microphone.";
+    }
+  };
+
+  afficher();
+</script>
+</body>
+</html>

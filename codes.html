@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Codes des salles</title>
+<style>
+  :root { --navy: #122652; --cyan: #00aac8; }
+  * { box-sizing: border-box; }
+  body { font-family: system-ui, sans-serif; background: var(--navy); color: #fff; margin: 0; padding: 24px 16px; }
+  main { max-width: 760px; margin: 0 auto; }
+  h1 { text-align: center; }
+  .carte { background: #fff; color: var(--navy); border-radius: 12px; padding: 20px; margin-bottom: 16px; }
+  h2 { margin: 0 0 10px; font-size: 18px; }
+  table { width: 100%; border-collapse: collapse; }
+  td { padding: 8px 6px; border-top: 1px solid #e3e7ef; }
+  .code { font: 700 22px ui-monospace, Consolas, monospace; letter-spacing: 4px; text-align: right; }
+  a, button { display: inline-block; background: var(--cyan); color: #fff; border: 0; border-radius: 8px; padding: 10px 18px; font-weight: 700; text-decoration: none; cursor: pointer; }
+  .centre { text-align: center; }
+</style>
+</head>
+<body>
+<main>
+  <h1>🔑 Codes des salles</h1>
+  <div id="contenu" class="carte centre">Chargement…</div>
+  <p class="centre"><a href="/">← Retour à la connexion</a> <button id="imprimer" hidden onclick="print()">🖨️ Imprimer</button></p>
+</main>
+<script>
+  const $ = (id) => document.getElementById(id);
+  let session = null;
+  try { session = JSON.parse(sessionStorage.getItem("ece-session")); } catch (e) {}
+
+  (async () => {
+    if (!session) {
+      $("contenu").innerHTML = "Connecte-toi d'abord avec un compte <b>prof</b> ou <b>administration</b>.";
+      return;
+    }
+    const r = await fetch(`/api/codes?jeton=${encodeURIComponent(session.jeton)}`);
+    if (!r.ok) {
+      $("contenu").innerHTML = "⛔ Cette page est réservée aux professeurs et à l'administration.";
+      return;
+    }
+    const codes = await r.json();
+    const noms = await (await fetch("/salles.json")).json();
+    const parBatiment = {};
+    for (const [id, code] of Object.entries(codes)) {
+      const bat = id.split("-")[0].replace("eiffel", "Eiffel ");
+      (parBatiment[bat] ||= []).push([noms[id] ? noms[id].replace(/ \(Eiffel \d\)$/, "") : id, code]);
+    }
+    const blocs = Object.entries(parBatiment).map(([bat, lignes]) =>
+      `<div class="carte"><h2>${bat}</h2><table>${lignes.map(([n, c]) =>
+        `<tr><td>${n}</td><td class="code">${c}</td></tr>`).join("")}</table></div>`).join("");
+    $("contenu").outerHTML = blocs;
+    $("imprimer").hidden = false;
+  })();
+</script>
+</body>
+</html>

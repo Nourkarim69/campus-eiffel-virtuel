@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Code d'accès</title>
+<script src="https://play.workadventu.re/iframe_api.js"></script>
+<style>
+  body { font-family: system-ui, sans-serif; background: #fff; color: #122652; margin: 0; padding: 20px; text-align: center; }
+  input { font-size: 32px; letter-spacing: 12px; width: 190px; text-align: center; padding: 8px; border: 2px solid #00aac8; border-radius: 10px; }
+  button { margin-top: 14px; padding: 10px 22px; border: 0; border-radius: 8px; background: #00aac8; color: #fff; font-weight: 700; font-size: 15px; cursor: pointer; }
+  .erreur { color: #c0392b; min-height: 1.3em; margin-top: 10px; }
+</style>
+</head>
+<body>
+  <h2>🔒 <span id="salle"></span></h2>
+  <p>Entre le code d'accès donné par ton prof.</p>
+  <form id="f">
+    <input id="code" inputmode="numeric" maxlength="4" autocomplete="off" autofocus>
+    <br><button>Entrer</button>
+  </form>
+  <div class="erreur" id="err"></div>
+  <script>
+    const q = new URLSearchParams(location.search);
+    const salle = q.get("salle");
+    document.getElementById("salle").textContent = q.get("nom") || salle;
+    WA.onInit().then(() => {
+      document.getElementById("f").onsubmit = async (e) => {
+        e.preventDefault();
+        const r = await fetch("/api/code", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ salle, code: document.getElementById("code").value }),
+        });
+        const d = await r.json();
+        if (!r.ok) { document.getElementById("err").textContent = d.erreur; return; }
+        WA.player.state.saveVariable("codeOk", { salle, t: Date.now() }, { public: false, persist: false });
+      };
+    });
+  </script>
+</body>
+</html>

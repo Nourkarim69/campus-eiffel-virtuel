@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tableau de cours</title>
+<style>
+  :root { --navy: #122652; --cyan: #00aac8; }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body { font-family: system-ui, sans-serif; background: #1d2330; color: #fff; display: flex; flex-direction: column; }
+  header { background: var(--navy); padding: 10px 14px; border-bottom: 3px solid var(--cyan); }
+  header h1 { font-size: 17px; margin: 0; }
+  header small { color: #b9c4dc; }
+  #vue { flex: 1; display: flex; align-items: center; justify-content: center; background: #2a3142; min-height: 0; }
+  #vue iframe { width: 100%; height: 100%; border: 0; background: #fff; }
+  #vue img { max-width: 100%; max-height: 100%; object-fit: contain; }
+  .vide { color: #9aa6bf; text-align: center; padding: 20px; }
+  #prof { background: #fff; color: var(--navy); padding: 12px 14px; display: grid; gap: 8px; }
+  #prof input[type=text], #prof input[type=url] { width: 100%; padding: 8px; border: 1px solid #c5cbd8; border-radius: 6px; }
+  .ligne { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  button { padding: 8px 14px; border: 0; border-radius: 6px; background: var(--cyan); color: #fff; font-weight: 700; cursor: pointer; }
+  button.rouge { background: #c0392b; }
+  a { color: var(--cyan); }
+  #msg { font-size: 13px; min-height: 1.1em; }
+</style>
+</head>
+<body>
+  <header>
+    <h1 id="titre">Tableau</h1>
+    <small id="info">Aucun cours affiché pour l'instant</small>
+  </header>
+  <div id="vue"><div class="vide">Le prof n'a encore rien affiché au tableau.</div></div>
+
+  <section id="prof" hidden>
+    <b>✏️ Mettre un cours au tableau</b>
+    <input type="text" id="t" placeholder="Titre du cours (ex. : Algo – Chapitre 3)">
+    <div class="ligne">
+      <input type="file" id="fichier" accept="application/pdf,image/png,image/jpeg">
+      <button id="envoyerFichier">Afficher le fichier</button>
+    </div>
+    <div class="ligne">
+      <input type="url" id="lien" placeholder="…ou un lien (Google Slides, Moodle, vidéo…)" style="flex:1">
+      <button id="envoyerLien">Afficher le lien</button>
+    </div>
+    <div class="ligne"><button class="rouge" id="effacer">Effacer le tableau</button><span id="msg"></span></div>
+  </section>
+
+  <script>
+    const p = new URLSearchParams(location.search);
+    const salle = p.get("salle");
+    const jeton = p.get("jeton");
+    const $ = (id) => document.getElementById(id);
+    $("titre").textContent = "📋 Tableau – " + (p.get("nom") || salle);
+    let dernier = null;
+
+    async function charger() {
+      const c = await (await fetch(`/api/cours/${salle}`)).json();
+      const cle = c ? c.date : 0;
+      if (cle === dernier) return;
+      dernier = cle;
+      const vue = $("vue");
+      if (!c) { vue.innerHTML = '<div class="vide">Le prof n\'a encore rien affiché au tableau.</div>'; $("info").textContent = "Aucun cours affiché pour l'instant"; return; }
+      $("info").textContent = `${c.titre} · posé par ${c.auteur} à ${new Date(c.date).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}`;
+      vue.innerHTML = "";
+      if (c.type === "image") {
+        const img = document.createElement("img"); img.src = c.url; img.alt = c.titre; vue.append(img);
+      } else {
+        const f = document.createElement("iframe"); f.src = c.url; f.title = c.titre; f.allowFullscreen = true; vue.append(f);
+        if (c.type === "lien") $("info").innerHTML += ` · <a href="${encodeURI(c.url)}" target="_blank" rel="noopener">ouvrir dans un onglet</a>`;
+      }
+    }
+    charger();
+    setInterval(charger, 4000); // les étudiants voient le nouveau cours tout seuls
+
+    // Outils du prof (le serveur vérifie le rôle avec le jeton)
+    if (jeton) {
+      fetch(`/api/codes?jeton=${encodeURIComponent(jeton)}`).then((r) => { if (r.ok) $("prof").hidden = false; });
+      const msg = (t) => { $("msg").textContent = t; };
+      const titre = () => $("t").value.trim() || "Cours";
+      async function envoyer(options) {
+        const r = await fetch(`/api/cours/${salle}?jeton=${encodeURIComponent(jeton)}`, { method: "POST", ...options });
+        const d = await r.json();
+        msg(r.ok ? "✅ C'est au tableau, tous les étudiants de la salle le voient." : "❌ " + d.erreur);
+        dernier = null; charger();
+      }
+      $("envoyerFichier").onclick = () => {
+        const f = $("fichier").files[0];
+        if (!f) return msg("Choisis d'abord un fichier PDF ou une image.");
+        msg("Envoi en cours…");
+        envoyer({ headers: { "Content-Type": f.type, "X-Titre": encodeURIComponent(titre()) }, body: f });
+      };
+      $("envoyerLien").onclick = () => envoyer({ headers: { "Content-Type": "application/json" }, body: JSON.stringify({ titre: titre(), lien: $("lien").value.trim() }) });
+      $("effacer").onclick = () => envoyer({ headers: { "Content-Type": "application/json" }, body: JSON.stringify({ effacer: true }) });
+    }
+  </script>
+</body>
+</html>

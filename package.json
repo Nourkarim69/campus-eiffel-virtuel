@@ -1,0 +1,7 @@
+{
+  "name": "ece-campus-virtuel",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Campus virtuel 2D de l'ECE sur WorkAdventure",
+  "scripts": { "start": "node server.js", "generate": "python tools/generate.py" }
+}

@@ -1,0 +1,10 @@
+# Secrets et données locales : JAMAIS sur GitHub
+data/
+cours/
+.env
+
+# Outils
+node_modules/
+__pycache__/
+*.pyc
+.claude/

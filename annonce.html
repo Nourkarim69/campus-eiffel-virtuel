@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Annonce</title>
+<script src="https://play.workadventu.re/iframe_api.js"></script>
+<style>
+  body { font-family: system-ui, sans-serif; background: #fff; color: #122652; margin: 0; padding: 16px; }
+  textarea { width: 100%; box-sizing: border-box; min-height: 100px; padding: 10px; border: 1px solid #c5cbd8; border-radius: 8px; font: inherit; }
+  button { margin-top: 10px; padding: 10px 18px; border: 0; border-radius: 8px; background: #00aac8; color: #fff; font-weight: 700; cursor: pointer; }
+</style>
+</head>
+<body>
+  <label for="texte"><b>Message pour tout le campus</b></label>
+  <textarea id="texte" maxlength="200" placeholder="Ex. : Le cours reprend dans 5 minutes en amphi."></textarea>
+  <button id="envoyer">Envoyer l'annonce</button>
+  <script>
+    WA.onInit().then(() => {
+      document.getElementById("envoyer").onclick = () => {
+        const t = document.getElementById("texte").value.trim();
+        if (t) WA.player.state.saveVariable("brouillonAnnonce", t, { public: false, persist: false });
+      };
+    });
+  </script>
+</body>
+</html>
